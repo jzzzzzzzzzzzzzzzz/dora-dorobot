@@ -532,11 +532,7 @@ class FlaskServer:
                             "data":{},
                             "msg":self.response_start_collection['msg']
                         }
-<<<<<<< dev
-                        return jsonify(response_data), 200
-=======
                         return jsonify(response_data), 404
->>>>>>> dev-op
                 else:
                     time.sleep(0.02)
                 if time.time() - now_time > 5: # 正式环境设为2.5超时

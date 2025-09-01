@@ -76,6 +76,7 @@ def main(cfg: ControlPipelineConfig):
 
     daemon = Daemon(fps=DEFAULT_FPS)
     daemon.start(cfg.robot)
+    daemon.update()
 
 
     # coordinator = Coordinator(daemon)
@@ -98,6 +99,51 @@ def main(cfg: ControlPipelineConfig):
         target_dir = dataset_path / date_str / "dev" / repo_id
     else:
         target_dir = dataset_path / date_str / "dev" / repo_id
+
+    # Check for duplicate dataset names and offer auto-rename
+    original_repo_id = repo_id
+    original_target_dir = target_dir
+    if target_dir.exists() and target_dir.is_dir():
+        print(f"\n⚠️  数据集目录已存在: {target_dir}")
+        print(f"原数据集名称: {repo_id}")
+        user_input = input("是否自动生成新的数据集名称？(yes/no): ").strip().lower()
+        
+        if user_input in ['yes', 'y']:
+            # Try numeric suffix first
+            counter = 1
+            while True:
+                new_repo_id = f"{original_repo_id}_{counter:03d}"
+                if "release" in git_branch_name:
+                    new_target_dir = dataset_path / date_str / "user" / new_repo_id
+                elif "dev" in git_branch_name:
+                    new_target_dir = dataset_path / date_str / "dev" / new_repo_id
+                else:
+                    new_target_dir = dataset_path / date_str / "dev" / new_repo_id
+                
+                if not new_target_dir.exists():
+                    repo_id = new_repo_id
+                    target_dir = new_target_dir
+                    print(f"✅ 已生成新数据集名称: {repo_id}")
+                    print(f"新目录路径: {target_dir}")
+                    break
+                counter += 1
+                if counter > 999:  # Fallback to timestamp if too many numbered versions
+                    timestamp_suffix = datetime.now().strftime("%H%M%S")
+                    repo_id = f"{original_repo_id}_{timestamp_suffix}"
+                    if "release" in git_branch_name:
+                        target_dir = dataset_path / date_str / "user" / repo_id
+                    elif "dev" in git_branch_name:
+                        target_dir = dataset_path / date_str / "dev" / repo_id
+                    else:
+                        target_dir = dataset_path / date_str / "dev" / repo_id
+                    print(f"✅ 已生成带时间戳的数据集名称: {repo_id}")
+                    print(f"新目录路径: {target_dir}")
+                    break
+        else:
+            print("❌ 用户选择不重命名，程序将继续使用原名称（可能会覆盖现有数据）")
+    
+    # Update the record config with potentially new repo_id
+    cfg.record.repo_id = repo_id
 
 
     # 判断是否存在对应文件夹以决定是否启用恢复模式
@@ -139,12 +185,28 @@ def main(cfg: ControlPipelineConfig):
         ]
     }
 
-    record_cfg = RecordConfig(fps=cfg.record.fps, repo_id=repo_id, video=daemon.robot.use_videos, resume=resume, root=target_dir)
+    record_cfg = RecordConfig(
+        fps=cfg.record.fps,
+        repo_id=repo_id,
+        single_task=cfg.record.single_task,
+        video=daemon.robot.use_videos,
+        resume=resume,
+        root=target_dir,
+        num_episodes=cfg.record.num_episodes,
+        episode_duration_s=cfg.record.episode_duration_s,
+        inter_episode_sleep_s=cfg.record.inter_episode_sleep_s,
+    )
     record = Record(fps=cfg.record.fps, robot=daemon.robot, daemon=daemon, record_cfg = record_cfg, record_cmd=msg)
             
     record.start()
 
     try:
+        episode_counter = 0
+        episode_start_t = time.perf_counter()
+        if cfg.record.episode_duration_s is not None and cfg.record.episode_duration_s > 0:
+            print(f"\n==== Episode {episode_counter + 1} START (target {cfg.record.episode_duration_s:.2f}s) ====")
+        else:
+            print(f"\n==== Recording START (no fixed duration) ====")
         while True:
             daemon.update()
             observation = daemon.get_observation()
@@ -165,13 +227,36 @@ def main(cfg: ControlPipelineConfig):
                     
             else:
                 print("observation is none")
+
+            # Episode rotation by duration
+            if cfg.record.episode_duration_s is not None and cfg.record.episode_duration_s > 0:
+                if time.perf_counter() - episode_start_t >= cfg.record.episode_duration_s:
+                    elapsed = time.perf_counter() - episode_start_t
+                    print(f"==== Episode {episode_counter + 1} END (elapsed {elapsed:.2f}s) ====")
+                    record.rotate_event.set()
+                    episode_counter += 1
+                    if cfg.record.num_episodes and cfg.record.num_episodes > 0 and episode_counter >= cfg.record.num_episodes:
+                        break
+
+                    # reset window
+                    if cfg.record.inter_episode_sleep_s and cfg.record.inter_episode_sleep_s > 0:
+                        print(f"---- Reset BEGIN (sleep {cfg.record.inter_episode_sleep_s:.2f}s) ----")
+                        time.sleep(cfg.record.inter_episode_sleep_s)
+                        print("---- Reset END ----")
+
+                    episode_start_t = time.perf_counter()
+                    print(f"\n==== Episode {episode_counter + 1} START (target {cfg.record.episode_duration_s:.2f}s) ====")
             
     except KeyboardInterrupt:
         print("coordinator and daemon stop")
 
     finally:
         record.stop()
-        record.save()
+        # Save only if there are unsaved frames (final partial episode)
+        if getattr(record, "has_unsaved_frames", False):
+            elapsed = time.perf_counter() - episode_start_t
+            print(f"==== Final Episode END (elapsed {elapsed:.2f}s) ====")
+            record.save()
         daemon.stop()
         # coordinator.stop()
         cv2.destroyAllWindows()

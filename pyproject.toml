@@ -1,5 +1,5 @@
 [project]
-name = "operating-platform"
+name = "DoRobot-Preview"
 version = "0.1.0"
 description = ""
 readme = "README.md"
@@ -39,6 +39,7 @@ dependencies = [
     "sounddevice",
     "soundfile",
     "seaborn",
+    "rerun-sdk>=0.23.4,<0.24.0",
 ]
 
 [tool.setuptools]

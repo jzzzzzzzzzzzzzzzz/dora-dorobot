@@ -89,7 +89,7 @@ class RecordConfig():
     # set to ≥1 to use subprocesses, each using threads to write images. The best number of processes
     # and threads depends on your system. We recommend 4 threads per camera with 0 processes.
     # If fps is unstable, adjust the thread count. If still unstable, try using 1 or more subprocesses.
-    num_image_writer_processes: int = 0
+    num_image_writer_processes: int = 1
     # Number of threads writing the frames as png images on disk, per camera.
     # Too many threads might cause unstable teleoperation fps due to main thread being blocked.
     # Not enough threads might cause low camera fps.
@@ -100,17 +100,30 @@ class RecordConfig():
 
     record_cmd = None
 
+    # New parameters for segmented recording
+    # Number of episodes to record in one run. If <= 0, record until interrupted.
+    num_episodes: int = 1
+    # Duration in seconds for each episode. If None or <= 0, record until manually rotated/stopped.
+    episode_duration_s: float | None = None
+    # Sleep seconds between episodes (useful to stabilize devices)
+    inter_episode_sleep_s: float = 0.0
+
 
 class Record:
     def __init__(self, fps: int, robot: Robot, daemon: Daemon, record_cfg: RecordConfig, record_cmd):
         self.robot = robot
+        self.fps = fps
+
         self.daemon = daemon
         self.record_cfg = record_cfg
-        self.fps = fps
+        self.record_cfg.record_cmd = record_cmd
         self.record_cmd = record_cfg.record_cmd
+        
         self.last_record_episode_index = 0
         self.record_complete = False
         self.save_data = None
+        self.has_unsaved_frames = False
+        self.rotate_event = threading.Event()
 
         if self.record_cfg.resume:
             self.dataset = DoRobotDataset(
@@ -150,6 +163,17 @@ class Record:
 
     def process(self):
         while self.running:
+            # Handle rotate request (save current episode and start a new one)
+            if self.rotate_event.is_set():
+                if self.has_unsaved_frames:
+                    try:
+                        self.save()
+                    except Exception as e:
+                        print("[Record] save on rotate failed:", e)
+                # Reset unsaved flag after rotation attempt (saved or empty)
+                self.has_unsaved_frames = False
+                self.rotate_event.clear()
+
             if self.dataset is not None:
                 start_loop_t = time.perf_counter()
 
@@ -158,6 +182,7 @@ class Record:
 
                 frame = {**observation, **action, "task": self.record_cfg.single_task}
                 self.dataset.add_frame(frame)
+                self.has_unsaved_frames = True
 
                 dt_s = time.perf_counter() - start_loop_t
 
