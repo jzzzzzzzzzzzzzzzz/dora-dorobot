@@ -134,17 +134,17 @@ class AlohaRobotConfig(RobotConfig):
                 height=480,
             ),
             "image_right": OpenCVCameraConfig(
-                camera_index=2,
-                fps=30,
-                width=640,
-                height=480,
-            ),
-            "image_left": OpenCVCameraConfig(
                 camera_index=3,
                 fps=30,
                 width=640,
                 height=480,
             ),
+            # "image_left": OpenCVCameraConfig(
+            #     camera_index=3,
+            #     fps=30,
+            #     width=640,
+            #     height=480,
+            # ),
             # "image_depth_top": OpenCVCameraConfig(
             #     camera_index=4,
             #     fps=30,
@@ -518,13 +518,13 @@ class SO101RobotConfig(ManipulatorRobotConfig):
     cameras: dict[str, CameraConfig] = field(
         default_factory=lambda: {
             "image_top": OpenCVCameraConfig(
-                camera_index=0,
+                camera_index=1,
                 fps=30,
                 width=640,
                 height=480,
             ),
             "image_wrist": OpenCVCameraConfig(
-                camera_index=0,
+                camera_index=3,
                 fps=30,
                 width=640,
                 height=480,

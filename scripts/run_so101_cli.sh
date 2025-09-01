@@ -1,4 +1,4 @@
-conda activate op
+conda activate dorobot
 
 python operating_platform/core/main.py \
     --robot.type=so101 \

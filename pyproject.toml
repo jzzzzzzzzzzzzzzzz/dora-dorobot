@@ -39,6 +39,7 @@ dependencies = [
     "sounddevice",
     "soundfile",
     "seaborn",
+    "rerun-sdk>=0.23.4,<0.24.0",
 ]
 
 [tool.setuptools]
