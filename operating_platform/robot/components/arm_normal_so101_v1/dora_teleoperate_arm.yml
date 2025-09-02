@@ -7,7 +7,7 @@ nodes:
       - joint
     env:
       GET_DEVICE_FROM: PORT
-      PORT: /dev/ttyACM1
+      PORT: /dev/ttyACM0
       ARM_NAME: SO101-leader
       ARM_ROLE: leader
 
@@ -20,7 +20,7 @@ nodes:
       - joint
     env:
       GET_DEVICE_FROM: PORT
-      PORT: /dev/ttyACM2
+      PORT: /dev/ttyACM1
       ARM_NAME: SO101-follower
       ARM_ROLE: follower
 
