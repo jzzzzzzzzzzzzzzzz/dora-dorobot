@@ -1,0 +1,24 @@
+nodes:
+  - id: camera_top
+    path: ../../components/camera_opencv/main.py
+    inputs:
+      tick: dora/timer/millis/33
+    outputs:
+      - image
+    env:
+      CAPTURE_PATH: 1
+      IMAGE_WIDTH: 640
+      IMAGE_HEIGHT: 480
+
+  - id: test_action
+    path: /data/dora/DoRobot-Preview/operating_platform/robot/components/inference_action/main.py
+    inputs:
+      tick: dora/timer/millis/100
+      image_top: camera_top/image
+    outputs:
+      - action
+    env:
+      MODEL_PATH: /data/dora/act_dorobot/pretrained_model
+      DEVICE: cpu
+
+

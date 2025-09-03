@@ -47,6 +47,18 @@ socket_joint = zmq_context.socket(zmq.PAIR)
 socket_joint.connect(ipc_address_joint)
 socket_joint.setsockopt(zmq.RCVTIMEO, 2000)
 
+def piper_zmq_send(event_id, buffer, wait_time_s):
+    buffer_bytes = buffer.tobytes()
+    print(f"zmq send event_id:{event_id}, value:{buffer}")
+    try:
+        socket_joint.send_multipart([
+            event_id.encode('utf-8'),
+            buffer_bytes
+        ], flags=zmq.NOBLOCK)
+    except zmq.Again:
+        pass
+    time.sleep(wait_time_s)
+
 def recv_image_server():
     """接收数据线程"""
     while running_recv_image_server:
@@ -593,6 +605,45 @@ class SO101Manipulator:
     #         action_sent.append(goal_pos)
 
     #     return torch.cat(action_sent)
+
+    def send_action(self, action: torch.Tensor):
+        """The provided action is expected to be a vector."""
+        if not self.is_connected:
+            raise RobotDeviceNotConnectedError(
+                "SO101Manipulator is not connected. You need to run `robot.connect()`."
+            )
+        
+        # Convert action to numpy if it's a torch tensor
+        if isinstance(action, torch.Tensor):
+            action = action.detach().cpu().numpy()
+        
+        # For SO101, we expect a 6-dimensional action (6 joints)
+        if len(action) != 6:
+            print(f"Warning: Expected 6-dimensional action, got {len(action)}")
+            # Pad or truncate to 6 dimensions
+            if len(action) > 6:
+                action = action[:6]
+            else:
+                action = np.pad(action, (0, 6 - len(action)), 'constant')
+        
+        # Send action to follower arm through ZMQ
+        for name in self.follower_arms:
+            try:
+                # Convert action to the format expected by the follower arm
+                goal_pos = action.astype(np.float32)
+                
+                # Send the action through ZMQ to the follower arm
+                print(f"Sending action to {name}: {goal_pos}")
+                
+                # Use piper_zmq_send to send the action
+                piper_zmq_send(f"action_joint_{name}", goal_pos, wait_time_s=0.01)
+                
+            except Exception as e:
+                print(f"Error sending action to {name}: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        return action
 
     def disconnect(self):
         if not self.is_connected:

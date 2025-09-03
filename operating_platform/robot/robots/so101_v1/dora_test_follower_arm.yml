@@ -1,0 +1,20 @@
+nodes:
+  - id: arm_so101_follower
+    path: ../../components/arm_normal_so101_v1/main.py
+    inputs:
+      get_joint: dora/timer/millis/100
+    outputs:
+      - joint
+    env:
+      GET_DEVICE_FROM: PORT
+      PORT: /dev/ttyACM4
+      ARM_NAME: SO101-follower
+      ARM_ROLE: follower
+      CALIBRATION_DIR: ../../components/arm_normal_so101_v1/.calibration/
+      READ_ONLY: true
+
+  - id: read_position
+    path: /data/dora/DoRobot-Preview/read_current_position.py
+    inputs:
+      joint: arm_so101_follower/joint
+    outputs: []

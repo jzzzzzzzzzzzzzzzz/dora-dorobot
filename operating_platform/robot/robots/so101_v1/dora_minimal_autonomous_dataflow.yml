@@ -17,22 +17,9 @@ nodes:
     outputs:
       - image
     env:
-      CAPTURE_PATH: 3
+      CAPTURE_PATH: 2
       IMAGE_WIDTH: 640
       IMAGE_HEIGHT: 480
-
-  - id: arm_so101_leader
-    path: ../../components/arm_normal_so101_v1/main.py
-    inputs:
-      get_joint: dora/timer/millis/33
-    outputs:
-      - joint
-    env:
-      GET_DEVICE_FROM: PORT
-      PORT: /dev/ttyACM1
-      ARM_NAME: SO101-leader
-      ARM_ROLE: leader
-      CALIBRATION_DIR: ../../components/arm_normal_so101_v1/.calibration/
 
   - id: arm_so101_follower
     path: ../../components/arm_normal_so101_v1/main.py
@@ -60,12 +47,4 @@ nodes:
       MODEL_PATH: /data/dora/act_dorobot/pretrained_model
       DEVICE: cpu
 
-  - id: so101_zeromq
-    path: dora_zeromq.py
-    inputs: 
-      image_top: camera_top/image
-      image_wrist: camera_wrist/image
-      main_leader_joint: arm_so101_leader/joint
-      main_follower_joint: arm_so101_follower/joint
-    outputs:
-      - action_joint
+

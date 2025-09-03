@@ -19,6 +19,7 @@ ARM_NAME = os.getenv("ARM_NAME", "SO101-Arm")
 CALIBRATION_DIR = os.getenv("CALIBRATION_DIR", "./.calibration/")
 USE_DEGRESS = os.getenv("USE_DEGRESS", "True")
 ARM_ROLE = os.getenv("ARM_ROLE", "follower")
+READ_ONLY = os.getenv("READ_ONLY", "False")
 
 
 def env_to_bool(env_value: str, default: bool = True) -> bool:
@@ -60,6 +61,7 @@ def main():
     node = Node()
 
     use_degrees = env_to_bool(USE_DEGRESS)
+    read_only = env_to_bool(READ_ONLY)
     calibration_dir = Path(CALIBRATION_DIR).resolve()
     calibration_fpath = calibration_dir / f"{ARM_NAME}.json"
     name = ARM_NAME
@@ -96,29 +98,32 @@ def main():
 
     # Define safe initial position (contracted state)
     safe_initial_position = {
-        "shoulder_pan": -0.04,     # Current safe position
-        "shoulder_lift": 30.07,    # Current safe position
-        "elbow_flex": 20.53,       # Current safe position
-        "wrist_flex": 0.40,        # Current safe position
-        "wrist_roll": 0.18,         # Current safe position
-        "gripper": 1.50,           # Current safe position
+        "shoulder_pan": 0.0,      # Center position
+        "shoulder_lift": 30.0,    # Elevated position (safe height)
+        "elbow_flex": 20.0,       # Moderate bend
+        "wrist_flex": 1.0,        # Slight bend
+        "wrist_roll": 0.0,        # No roll
+        "gripper": 1.5,           # Partially closed
     }
 
-    # Move to safe initial position on startup
-    print("🔄 Moving to safe initial position...")
-    try:
-        arm_bus.sync_write("Goal_Position", safe_initial_position)
-        print(f"✅ Sent initial position to motors: {safe_initial_position}")
-        
-        # Wait for movement to complete
-        time.sleep(3.0)
-        print("✅ Initial position reached")
-    except Exception as e:
-        print(f"⚠️ Warning: Could not set initial position: {e}")
+    # Move to safe initial position on startup (only if not in read-only mode)
+    if not read_only:
+        print("🔄 Moving to safe initial position...")
+        try:
+            arm_bus.sync_write("Goal_Position", safe_initial_position)
+            print(f"✅ Sent initial position to motors: {safe_initial_position}")
+            
+            # Wait for movement to complete
+            time.sleep(3.0)
+            print("✅ Initial position reached")
+        except Exception as e:
+            print(f"⚠️ Warning: Could not set initial position: {e}")
+    else:
+        print("📖 Read-only mode - not moving to initial position")
 
     for event in node:
         if event["type"] == "INPUT":
-            if event["id"] == "action_joint":
+            if event["id"] == "action_joint" and not read_only:
                 position = event["value"].to_numpy()
                 print(f"🤖 Received action_joint: {position}")
 
@@ -157,7 +162,7 @@ def main():
                 arm_bus.sync_write("Goal_Position", goal_pos)
                 print(f"✅ Sent safe goal positions to motors: {goal_pos}")
 
-            elif event["id"] == "reset":
+            elif event["id"] == "reset" and not read_only:
                 # Reset to safe initial position
                 print("🔄 Reset command received - moving to safe initial position...")
                 try:
