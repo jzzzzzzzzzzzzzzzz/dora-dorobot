@@ -627,7 +627,7 @@ class SO101Manipulator:
             # goal_joint = action[(arm_index*arm_action_dim+from_idx):(arm_index*arm_action_dim+to_idx)]
             # goal_gripper = action[arm_index*arm_action_dim + 12]
             # arm_index += 1
-            goal_joint_numpy = np.array([t.item() for t in goal_joint], dtype=np.float32)
+            goal_joint_numpy = np.array([t for t in goal_joint], dtype=np.float32)
             # goal_gripper_numpy = np.array([t.item() for t in goal_gripper], dtype=np.float32)
             # position = np.concatenate([goal_joint_numpy, goal_gripper_numpy], axis=0)
 
