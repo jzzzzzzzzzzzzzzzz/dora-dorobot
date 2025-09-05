@@ -14,6 +14,7 @@ from typing import Any
 from concurrent.futures import ThreadPoolExecutor
 from collections import deque
 from functools import cache
+from functools import cached_property
 
 import threading
 import cv2
@@ -22,10 +23,9 @@ import zmq
 
 from operating_platform.robot.robots.utils import RobotDeviceNotConnectedError
 from operating_platform.robot.robots.configs import SO101RobotConfig
-from operating_platform.robot.robots.com_configs.cameras import CameraConfig, OpenCVCameraConfig
+from operating_platform.config.cameras import CameraConfig, OpenCVCameraConfig
 
 from operating_platform.robot.robots.camera import Camera
-from operating_platform.robot.robots.pika_v1.pika_trans_visual_dual import Transformer
 
 
 ipc_address_image = "ipc:///tmp/dora-zeromq-so101-image"
@@ -219,6 +219,28 @@ class SO101Manipulator:
 
     def get_motor_names(self, arms: dict[str, dict]) -> list:
         return [f"{arm}_{motor}" for arm, bus in arms.items() for motor in bus.motors]
+    
+    @property
+    def _leader_motors_ft(self) -> dict[str, type]:
+        return {f"{arm}_{motor}.pos": float for arm, bus in self.leader_arms.items() for motor in bus.motors}
+    
+    @property
+    def _follower_motors_ft(self) -> dict[str, type]:
+        return {f"{arm}_{motor}.pos": float for arm, bus in self.follower_arms.items() for motor in bus.motors}
+
+    @property
+    def _cameras_ft(self) -> dict[str, tuple]:
+        return {
+            cam: (self.config.cameras[cam].height, self.config.cameras[cam].width, 3) for cam in self.cameras
+        }
+
+    @cached_property
+    def observation_features(self) -> dict[str, type | tuple]:
+        return {**self._follower_motors_ft, **self._cameras_ft}
+
+    @cached_property
+    def action_features(self) -> dict[str, type]:
+        return self._leader_motors_ft
 
     @property
     def camera_features(self) -> dict:
@@ -390,7 +412,7 @@ class SO101Manipulator:
 
     def teleop_step(
         self, record_data=False, 
-    ) -> None | tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]]:
+    ) -> None | tuple[dict[str, Any], dict[str, Any]]:
 
         if not self.is_connected:
             raise RobotDeviceNotConnectedError(
@@ -412,7 +434,7 @@ class SO101Manipulator:
                     byte_array[:6] = pose_read[:]
                     byte_array = np.round(byte_array, 3)
                     
-                    follower_joint[name] = torch.from_numpy(byte_array)
+                    follower_joint[name] = byte_array
 
                     self.logs[f"read_follower_{name}_joint_dt_s"] = time.perf_counter() - now
                     
@@ -428,41 +450,69 @@ class SO101Manipulator:
                     byte_array[:6] = pose_read[:]
                     byte_array = np.round(byte_array, 3)
                     
-                    leader_joint[name] = torch.from_numpy(byte_array)
+                    leader_joint[name] = byte_array
 
                     self.logs[f"read_leader_{name}_joint_dt_s"] = time.perf_counter() - now
 
-        #记录当前关节角度
-        state = []
-        for name in self.follower_arms:
-            if name in follower_joint:
-                state.append(follower_joint[name])
-        state = torch.cat(state)
+        obs_dict, action_dict = {}, {}
 
-        #将关节目标位置添加到 action 列表中
-        action = []
-        for name in self.leader_arms:
+        #记录当前关节角度
+        for name, arm in self.follower_arms.items():
+            if name in follower_joint:
+                for motor, value in arm.motors.items():
+                    obs_dict[f"{name}_{motor}.pos"] = follower_joint[name][value[0]-1]
+
+        #将关节目标位置添加
+        for name, arm in self.leader_arms.items():
             if name in leader_joint:
-                action.append(leader_joint[name])
-        action = torch.cat(action)
+                for motor, value in arm.motors.items():
+                    action_dict[f"{name}_{motor}.pos"] = leader_joint[name][value[0]-1]
 
         # Capture images from cameras
         images = {}
         for name in self.cameras:
             now = time.perf_counter()
             images[name] = recv_images[name]
-            images[name] = torch.from_numpy(images[name])
             self.logs[f"read_camera_{name}_dt_s"] = time.perf_counter() - now
 
-        # Populate output dictionnaries and format to pytorch
-        obs_dict, action_dict = {}, {}
-        obs_dict["observation.state"] = state
-        action_dict["action"] = action
-        for name in self.cameras:
-            obs_dict[f"observation.images.{name}"] = images[name]
+        # for name in self.cameras:
+            obs_dict[f"{name}"] = images[name]
 
         # print("end teleoperate record")
         return obs_dict, action_dict
+    
+        # #记录当前关节角度
+        # state = []
+        # for name in self.follower_arms:
+        #     if name in follower_joint:
+        #         state.append(follower_joint[name])
+        # state = torch.cat(state)
+
+        # #将关节目标位置添加到 action 列表中
+        # action = []
+        # for name in self.leader_arms:
+        #     if name in leader_joint:
+        #         action.append(leader_joint[name])
+        # action = torch.cat(action)
+
+        # # Capture images from cameras
+        # images = {}
+        # for name in self.cameras:
+        #     now = time.perf_counter()
+        #     images[name] = recv_images[name]
+        #     # images[name] = torch.from_numpy(images[name])
+        #     self.logs[f"read_camera_{name}_dt_s"] = time.perf_counter() - now
+
+        # # Populate output dictionnaries and format to pytorch
+        # obs_dict, action_dict = {}, {}
+        # obs_dict["observation.state"] = state
+        # action_dict["action"] = action
+        # for name in self.cameras:
+        #     obs_dict[f"observation.images.{name}"] = images[name]
+
+        # # print("end teleoperate record")
+        # return obs_dict, action_dict
+
 
 
     # def capture_observation(self):

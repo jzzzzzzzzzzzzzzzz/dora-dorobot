@@ -39,6 +39,7 @@ dependencies = [
     "sounddevice",
     "soundfile",
     "seaborn",
+    "wandb"
 ]
 
 [tool.setuptools]

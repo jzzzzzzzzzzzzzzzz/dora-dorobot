@@ -18,13 +18,13 @@ from typing import Sequence
 
 import draccus
 
-from operating_platform.robot.robots.com_configs.cameras import (
+from operating_platform.config.cameras import (
     CameraConfig,
     IntelRealSenseCameraConfig,
     OpenCVCameraConfig,
 )
 
-from operating_platform.robot.robots.com_configs.motors import (
+from operating_platform.config.motors import (
     PikaMotorsBusConfig,
     PiperMotorsBusConfig,
     DynamixelMotorsBusConfig,
