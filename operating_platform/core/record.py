@@ -102,6 +102,13 @@ class RecordConfig():
     # Resume recording on an existing dataset.
     resume: bool = False
 
+    # # Extended configuration parameters
+    # task_id: str | None = None
+    # data_id: str | None = None
+    # collector_id: str | None = None
+    # countdown: int = 3
+    # task_steps: list[dict] | None = None
+
     record_cmd = None
 
 
