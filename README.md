@@ -7,7 +7,7 @@
 <!-- get this project
 
 ```sh
-git cloen https://github.com/DoRobot-Project/Operating-Platform.git
+git clone https://github.com/jzzzzzzzzzzzzzzzz/dora-dorobot.git
 cd Operating-Platform
 ```
 
@@ -35,8 +35,8 @@ lerobot_lite = { path = "operating_platform/lerobot_lite"} -->
 get this project
 
 ```sh
-git cloen https://github.com/DoRobot-Project/DoRobot-Preview.git
-cd DoRobot-Preview
+git clone https://github.com/jzzzzzzzzzzzzzzzz/dora-dorobot.git
+cd dora-dorobot
 ```
 
 ### 1.1. Initital DoRobot enviroment
