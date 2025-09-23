@@ -2,38 +2,14 @@
 
 ## Start (with Docker)
 
-get this project
-
-```sh
-git cloen https://github.com/DoRobot-Project/Operating-Platform.git
-cd Operating-Platform
-```
-
-build docker image
-```sh
-docker build -f docker/Dockerfile.base -t operating-platform:V1.0 .
-```
-
-make dir
-```sh
-mkdir /data/hf
-```
-
-run sh
-```sh
-sh docker/start.sh
-```
-
-
-[tool.uv.sources]
-lerobot_lite = { path = "operating_platform/lerobot_lite"}
+[TODO]
 
 ## Start (without Docker)
 
 get this project
 
 ```sh
-git cloen https://github.com/DoRobot-Project/Operating-Platform.git
+git cloen https://github.com/jzzzzzzzzzzzzzzzz/dora-dorobot.git
 cd Operating-Platform
 ```
 
